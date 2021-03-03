@@ -1,0 +1,555 @@
+<html>
+    <head>
+        <title>
+            Particle Physics
+        </title>
+    </head>
+    <style>
+        body{
+            margin:0;
+            overflow:hidden;
+            font-family:"arial";
+        }
+
+        #tutorial{
+            position:absolute;
+            left:0;
+            width:100%;
+            height:50px;
+            top:25%;
+            font-size:30;
+            color:888888;
+            opacity: 1;
+        }
+
+        #information{
+            position:absolute;
+            top:10px;
+            right:10px;
+            width:120px;
+            height:50px;
+            text-align:right;
+            font-size:12;
+        }
+
+    </style>
+    <body onmousedown="buttonDown(event)" onmouseup="buttonUp(event)">
+        <canvas id="canvas"></canvas>
+        <div id="tutorial">
+            <center>
+                <b>
+                    Click to Draw Sand | Right Click To Draw Walls | Middle Click To Erase
+                </b>
+            </center>
+        </div>
+        <div id="information" onmouseover="informationShow()" onmouseout="informationHide()">
+            &#9432
+        </div>
+    </body>
+    <script>
+        let screenWidth = window.innerWidth;
+        let screenHeight = window.innerHeight;
+        let walls = [] // [x, y]
+        let sand = [] // [x, y]
+        let sizeMultiplyer = 5;
+        let pixelsX = Math.round(screenWidth / sizeMultiplyer)
+        let pixelsY = Math.round(screenHeight / sizeMultiplyer)
+        let drawSandPressed = false;
+        let drawWallPressed = false;
+        let erasePressed = false;
+        let frameRate = 25
+        let gravity = "down";
+        let color = "sand"
+
+        document.oncontextmenu = document.body.oncontextmenu = function() {return false;}
+
+        setInterval(render, frameRate);
+        
+        let mouseX;
+        let mouseY;
+        document.addEventListener("mousemove", function (ev) {
+            mouseX = ev.clientX;
+            mouseY = ev.clientY;
+        });
+
+        document.addEventListener("mousedown", function(mouseEvent) {
+            if (mouseEvent.button != 1) {
+               return;
+            }
+            mouseEvent.preventDefault();
+            mouseEvent.stopPropagation();
+        });
+
+        function moveSand(){
+            // create empty allPositions array with empty blanks in every X and Y spot
+            let allPositions = []
+            for(var i = 0; i < pixelsX; i++){
+                allPositions.push([])
+            }
+            for(var i = 0; i < pixelsX; i++){
+                for(var x = 0; x < pixelsY; x++){
+                    if(i == 0 || i == pixelsX - 1){
+                        allPositions[i].push("wall")
+                    } else {
+                        allPositions[i].push("empty")
+                    }                    
+                }
+            }
+
+            //populate "sand"s in allPositions
+            for(var i = 0; i < sand.length; i++){
+                allPositions[sand[i][0]][sand[i][1]] = "sand"
+            }
+
+            //populate "wall"s in allPositions
+            for(var i = 0; i < walls.length; i++){
+                allPositions[walls[i][0]][walls[i][1]] = "wall"
+            }
+            if(gravity == "down"){
+               fallPhysicsDown(allPositions)
+            }
+            if(gravity == "up"){
+                fallPhysicsUp(allPositions)
+            }
+            if(gravity == "left"){
+                fallPhysicsLeft(allPositions)
+            }
+        }
+
+        function fallPhysicsDown(allPositions){
+            sand = shuffle(sand)
+            for(var i = 0; i < sand.length; i++){
+                if(sand[i][1] == pixelsY - 1){
+                    // sand touches bottom of screen : stops
+                    continue
+                } 
+                if(allPositions[sand[i][0]][sand[i][1] + 1] == "empty" && !(allPositions[sand[i][0]][sand[i][1] - 1] == "sand")){
+                    // below sand is empty : falls down
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][1] = sand[i][1] + 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }
+                if(allPositions[sand[i][0]][sand[i][1] + 1] == "sand"){
+                    // if below is only sand until blank and sand is not above : go to bottom of sand stack
+                    untilTester = true;
+                    iCounter = sand[i][1];
+                    hitWall = false
+                    while(untilTester){
+                        if(allPositions[sand[i][0]][iCounter] == "sand"){
+                            iCounter = iCounter + 1;
+                        } else {
+                            
+                            if(allPositions[sand[i][0]][iCounter] == "wall" || !allPositions[sand[i][0]][iCounter]){
+                                hitWall = true
+                                untilTester = false;
+                            } else {
+                                untilTester = false;
+                            }
+                        }
+                    }
+                    if(!hitWall){
+                        if(allPositions[sand[i][0]][sand[i][1] - 1] == "sand"){
+                            continue
+                        }
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][1] = iCounter
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } 
+                    
+                } 
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 1][sand[i][1] + 1] == "empty" && allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 1][sand[i][1] + 1] == "empty"){
+                    // right of sand and right + down of sand and left of sand and left + down of sand is empty : move right OR left
+                    if(Math.random() > 0.5){
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] + 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } else {
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] - 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    }
+                } 
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 1][sand[i][1] + 1] == "empty"){
+                    // right of sand and right + down of sand is empty : move right
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] + 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }   
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 1][sand[i][1] + 1] == "empty"){
+                    // left of sand and left + down of sand is empty : move left
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] - 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 2][sand[i][1] + 1] == "empty" && allPositions[sand[i][0] + 2][sand[i][1]] == "empty" && allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 2][sand[i][1] + 1] == "empty" && allPositions[sand[i][0] - 2][sand[i][1]] == "empty"){
+                    // right of sand and right * 2 of sand and right * 2 + down of sand and left of sand and left * 2 of sand and left * 2 + down is empty : move right OR left
+                    if(Math.random() > 0.5){
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] + 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } else {
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] - 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    }
+                } 
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 2][sand[i][1] + 1] == "empty" && allPositions[sand[i][0] + 2][sand[i][1]] == "empty"){
+                    // right of sand and right * 2 of sand and right * 2 + down of sand is empty : move right
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] + 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }   
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 2][sand[i][1] + 1] == "empty" && allPositions[sand[i][0] - 2][sand[i][1]] == "empty"){
+                    // left of sand and left * 2 of sand and left * 2 + down of sand is empty : move left
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] - 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }               
+            }
+        }
+
+        function fallPhysicsUp(allPositions){
+            sand = shuffle(sand)
+            for(var i = 0; i < sand.length; i++){
+                if(sand[i][1] == 0){
+                    // sand touches top of screen : stops
+                    continue
+                } 
+                if(allPositions[sand[i][0]][sand[i][1] - 1] == "empty" && !(allPositions[sand[i][0]][sand[i][1] + 1] == "sand")){
+                    // above sand is empty : falls up
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][1] = sand[i][1] - 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }
+                if(allPositions[sand[i][0]][sand[i][1] - 1] == "sand"){
+                    // if above is only sand until blank and sand is not below : go to top of sand stack
+                    untilTester = true;
+                    iCounter = sand[i][1];
+                    hitWall = false
+                    while(untilTester){
+                        if(allPositions[sand[i][0]][iCounter] == "sand"){
+                            iCounter = iCounter - 1;
+                        } else {
+                            
+                            if(allPositions[sand[i][0]][iCounter] == "wall" || !allPositions[sand[i][0]][iCounter]){
+                                hitWall = true
+                                untilTester = false;
+                            } else {
+                                untilTester = false;
+                            }
+                        }
+                    }
+                    if(!hitWall){
+                        if(allPositions[sand[i][0]][sand[i][1] + 1] == "sand"){
+                            continue
+                        }
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][1] = iCounter
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } 
+                    
+                } 
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 1][sand[i][1] - 1] == "empty" && allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 1][sand[i][1] - 1] == "empty"){
+                    // left of sand and left + up of sand and right of sand and right + up of sand is empty : move left OR right
+                    if(Math.random() > 0.5){
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] - 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } else {
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] + 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    }
+                } 
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 1][sand[i][1] - 1] == "empty"){
+                    // left of sand and left + up of sand is empty : move left
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] - 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }   
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 1][sand[i][1] - 1] == "empty"){
+                    // right of sand and right + up of sand is empty : move right
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] + 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 2][sand[i][1] - 1] == "empty" && allPositions[sand[i][0] - 2][sand[i][1]] == "empty" && allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 2][sand[i][1] - 1] == "empty" && allPositions[sand[i][0] + 2][sand[i][1]] == "empty"){
+                    // left of sand and left * 2 of sand and left * 2 + up of sand and right of sand and right * 2 of sand and right * 2 + up is empty : move right OR left
+                    if(Math.random() > 0.5){
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] - 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    } else {
+                        allPositions[sand[i][0]][sand[i][1]] = "empty"
+                        sand[i][0] = sand[i][0] + 1;
+                        allPositions[sand[i][0]][sand[i][1]] = "sand"
+                        continue
+                    }
+                } 
+                if(allPositions[sand[i][0] - 1][sand[i][1]] == "empty" && allPositions[sand[i][0] - 2][sand[i][1] - 1] == "empty" && allPositions[sand[i][0] - 2][sand[i][1]] == "empty"){
+                    // left of sand and left * 2 of sand and left * 2 + up of sand is empty : move left
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] - 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }   
+                if(allPositions[sand[i][0] + 1][sand[i][1]] == "empty" && allPositions[sand[i][0] + 2][sand[i][1] - 1] == "empty" && allPositions[sand[i][0] + 2][sand[i][1]] == "empty"){
+                    // right of sand and right * 2 of sand and right * 2 + up of sand is empty : move right
+                    allPositions[sand[i][0]][sand[i][1]] = "empty"
+                    sand[i][0] = sand[i][0] + 1;
+                    allPositions[sand[i][0]][sand[i][1]] = "sand"
+                    continue
+                }               
+            }
+        }
+
+        function drawWall(line, lastWall){
+            if(drawWallPressed){
+                walls.push([Math.round(mouseX / sizeMultiplyer), Math.round(mouseY / sizeMultiplyer)]);
+                walls.push([Math.round(mouseX / sizeMultiplyer) - 1, Math.round(mouseY / sizeMultiplyer)]);
+                walls.push([Math.round(mouseX / sizeMultiplyer), Math.round(mouseY / sizeMultiplyer) + 1]);
+                walls.push([Math.round(mouseX / sizeMultiplyer) - 1, Math.round(mouseY / sizeMultiplyer) + 1]);
+                let nowX = Math.round(mouseX / sizeMultiplyer);
+                let nowY = Math.round(mouseY / sizeMultiplyer);
+                setTimeout(function(){drawWall(true, [nowX, nowY])}, frameRate);
+
+                if(line){
+                    let distanceAway = Math.sqrt(Math.pow(lastWall[0] - Math.round(mouseX / sizeMultiplyer), 2) + Math.pow(lastWall[1] - Math.round(mouseY / sizeMultiplyer), 2))
+                    console.log(distanceAway)
+                    for(var i = 0; i < distanceAway; i++){
+                        walls.push([Math.round((mouseX / sizeMultiplyer) * (i/distanceAway) + lastWall[0] * ((distanceAway - i)/distanceAway)), Math.round((mouseY / sizeMultiplyer) * (i/distanceAway) + lastWall[1] * ((distanceAway - i)/distanceAway))])
+                        walls.push([-1 + Math.round((mouseX / sizeMultiplyer) * (i/distanceAway) + lastWall[0] * ((distanceAway - i)/distanceAway)), Math.round((mouseY / sizeMultiplyer) * (i/distanceAway) + lastWall[1] * ((distanceAway - i)/distanceAway))])
+                        walls.push([Math.round((mouseX / sizeMultiplyer) * (i/distanceAway) + lastWall[0] * ((distanceAway - i)/distanceAway)), 1 + Math.round((mouseY / sizeMultiplyer) * (i/distanceAway) + lastWall[1] * ((distanceAway - i)/distanceAway))])
+                        walls.push([-1 + Math.round((mouseX / sizeMultiplyer) * (i/distanceAway) + lastWall[0] * ((distanceAway - i)/distanceAway)), 1 + Math.round((mouseY / sizeMultiplyer) * (i/distanceAway) + lastWall[1] * ((distanceAway - i)/distanceAway))])
+                    }
+                }
+            } else {
+                return
+            }
+        }
+
+        function drawSand(){
+            if(drawSandPressed){
+                sand.push([Math.round(mouseX / sizeMultiplyer), Math.round(mouseY / sizeMultiplyer)]);
+                sand.push([Math.round(mouseX / sizeMultiplyer) - 1, Math.round(mouseY / sizeMultiplyer)]);
+                
+                setTimeout(drawSand, frameRate); 
+            } else {
+                return
+            }
+        }
+
+        function erase(){
+            if(erasePressed){
+                for(var i = 0; i < sand.length; i++){
+                    if(Math.abs(sand[i][0] - (mouseX / sizeMultiplyer)) < 5 && Math.abs(sand[i][1] - (mouseY / sizeMultiplyer)) < 4){
+                        sand.splice(i, 1);
+                    }
+                }
+                for(var i = 0; i < walls.length; i++){
+                    if(Math.abs(walls[i][0] - (mouseX / sizeMultiplyer)) < 5 && Math.abs(walls[i][1] - (mouseY / sizeMultiplyer)) < 4){
+                        walls.splice(i, 1);
+                    }
+                }
+                setTimeout(erase, frameRate);
+            } else {
+                return
+            }
+        }
+
+        function buttonDown(event) {
+            setTimeout(lowerOpacity, 4000)
+            if(event.button == 0){
+                drawSandPressed = true
+                drawSand()
+            }
+            if(event.button == 1){
+                erasePressed = true
+                erase()
+            }
+            if(event.button == 2){
+                drawWallPressed = true
+                drawWall(false)
+            }            
+        }
+
+        function buttonUp(event) {
+            if(event.button == 0){
+                drawSandPressed = false
+                sand = getUnique(sand);
+            }
+            if(event.button == 1){
+                erasePressed = false
+            }
+            if(event.button == 2){
+                drawWallPressed = false
+                walls = getUnique(walls);
+            }            
+        }
+
+        var opacity = 1;
+
+        function lowerOpacity(){
+            if(opacity > 0){
+                document.getElementById("tutorial").style.opacity = opacity -0.05;
+                opacity = opacity - 0.05    
+                setTimeout(lowerOpacity, 100);
+            }
+        }
+
+        document.onkeydown = checkKey;
+        function checkKey(e){
+            e = e || window.event;
+            if (e.keyCode == '38') {
+                gravity = "up"
+            }
+            else if (e.keyCode == '40') {
+                gravity = "down"
+            }
+            else if (e.keyCode == '37') {
+                //gravity = "left"
+            }
+            else if (e.keyCode == '39') {
+                //gravity = "right"
+            }
+            else if (e.keyCode == '67') {
+                clear()
+            }
+            else if (e.keyCode == '82') {
+               random();
+            }
+            else if (e.keyCode == '77') {
+               // maze maybe
+            }
+            else if (e.keyCode == '66') {
+               bigBall()
+            }
+            else if (e.keyCode == '72') {
+                if(Math.random() < 0.3333){
+                    color = "random"
+                } else if(Math.random() > 0.5){
+                    color = "sand"
+                } else {
+                    color = 'rgba(' + Math.random() * 256 + ', ' + Math.random() * 256 + ', ' + Math.random() * 256 + ', 1)'
+                }
+            }
+        }
+
+        function informationShow(){
+            document.getElementById("information").innerText = "\u24d8 \n [up] Gravity up \n [down] Gravity Down \n [c] Clear \n [r] Random \n [b] Big Sand Ball \n [LClick] Spawn Sand \n [MClick] Erase \n [RClick] Draw Wall"
+        }
+
+        function informationHide(){
+            document.getElementById("information").innerText = "\u24d8"
+        }
+
+        function clear(){
+            sand = []
+            walls = []
+        }
+
+        function bigBall(){
+            for(var i = -25; i < 25; i++){
+                for(var x = -25; x < 25; x++){
+                    if(i*i + x*x < 25*25 && mouseX/sizeMultiplyer + i > 0 && mouseX/sizeMultiplyer + i < pixelsX - 1 && mouseY/sizeMultiplyer + x > 0 && mouseY/sizeMultiplyer + x < pixelsY - 1){
+                        sand.push([Math.round(mouseX/sizeMultiplyer + i), Math.round(mouseY/sizeMultiplyer + x)])
+                    }
+                }
+            }
+            sand = getUnique(sand);
+        }
+
+        function random(){
+            for(var i = 0; i < 200; i++){
+                wallX = Math.round(Math.random() * (pixelsX - 10) + 5);
+                wallY = Math.round(Math.random() * (pixelsY - 10) + 5);
+                walls.push([wallX - 1, wallY - 1])
+                //walls.push([wallX - 1, wallY])
+                //walls.push([wallX - 1, wallY + 1])
+                //walls.push([wallX, wallY - 1])
+                //walls.push([wallX, wallY])
+                //walls.push([wallX, wallY + 1])
+                //walls.push([wallX + 1, wallY - 1])
+                //walls.push([wallX + 1, wallY])
+                //walls.push([wallX + 1, wallY + 1])
+
+
+            }
+        }
+
+        function shuffle(arra1) {
+            var ctr = arra1.length, temp, index;
+            while (ctr > 0) {
+                // Pick a random index
+                index = Math.floor(Math.random() * ctr);
+                // Decrease ctr by 1
+                ctr--;
+                // And swap the last element with it
+                temp = arra1[ctr];
+                arra1[ctr] = arra1[index];
+                arra1[index] = temp;
+            }
+            return arra1;
+        }
+
+        //make sure to use this when drawing walls AND when drawing sand
+        function getUnique(array){ 
+            var uniqueArray = [];
+        
+            for(i=0; i < array.length; i++){
+                if(uniqueArray.indexOf(array[i]) === -1) {
+                    uniqueArray.push(array[i]);
+                }
+            }
+            return uniqueArray;
+        }
+
+        function render(){
+            // call sand move
+            moveSand()
+
+            // remaking the canvas with each render
+            var myCanvas = document.getElementById('canvas')
+            myCanvas.height = screenHeight;
+            myCanvas.width = screenWidth;
+
+            var context = myCanvas.getContext("2d");
+
+            //what gets drawn onto this iteration
+            if(color == "sand"){
+                context.fillStyle = 'rgba(194, 178, 128, 1)'; //r g b opacity
+            } else {
+                context.fillStyle = color;
+            }
+            for(var i = 0; i < sand.length; i++){
+                if(color == "random"){
+                    context.fillStyle = 'rgba(' + Math.random() * 256 + ', ' + Math.random() * 256 + ', ' + Math.random() * 256 + ', 1)'
+                }
+                context.fillRect(sand[i][0] * sizeMultiplyer, sand[i][1] * sizeMultiplyer, sizeMultiplyer, sizeMultiplyer);
+            }
+            context.fillStyle = 'rgba(0, 0, 0, 1)'; //r g b opacity
+            for(var i = 0; i < walls.length; i++){
+                context.fillRect(walls[i][0] * sizeMultiplyer, walls[i][1] * sizeMultiplyer, sizeMultiplyer, sizeMultiplyer);
+            }
+            
+        }
+
+    </script>
+</html>
